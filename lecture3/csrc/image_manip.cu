@@ -7,7 +7,7 @@
 #define CHECK_INPUT(x) CHECK_CUDA(x); CHECK_CONTIGUOUS(x)
 
 
-__global__ void rgb_to_grayscale_flattened_kernel(const unsigned char* img, unsigned char* out, const int pixels_per_channel) {
+__global__ void rgb_to_grayscale_1d_kernel(const unsigned char* img, unsigned char* out, const int pixels_per_channel) {
   /* 
   Ok, so the image has 3 channels
   when we flatten it, we need to think about 
@@ -25,8 +25,19 @@ __global__ void rgb_to_grayscale_flattened_kernel(const unsigned char* img, unsi
 
 }
 
+__global__ void rgb_to_grayscale_2d_kernel(const unsigned char* img, unsigned char* out, const int height, const int width) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x; // moves along height
+  int j = blockIdx.y * blockDim.y + threadIdx.y; // moves along width
 
-torch::Tensor grey_scale_flattened(const torch::Tensor image) {
+  if (i < height && j < width) {
+    int pixels_per_channel = height * width;
+    int idx = i * width + j;
+    out[idx] = 0.21f * img[idx] + 0.72f * img[idx + pixels_per_channel] + 0.07f * img[idx + 2 * pixels_per_channel];  
+  }
+}
+
+
+torch::Tensor grey_scale_1d(const torch::Tensor image) {
   CHECK_INPUT(image);
   int height = image.size(1);
   int width = image.size(2);
@@ -35,7 +46,7 @@ torch::Tensor grey_scale_flattened(const torch::Tensor image) {
   
   torch::Tensor out = torch::empty({height, width}, image.options());
 
-  rgb_to_grayscale_flattened_kernel<<<ceil(pixels_per_channel / 1024.0), 1024>>>(
+  rgb_to_grayscale_1d_kernel<<<ceil(pixels_per_channel / 1024.0), 1024>>>(
     image.data_ptr<unsigned char>(),
     out.data_ptr<unsigned char>(),
     pixels_per_channel
@@ -44,11 +55,39 @@ torch::Tensor grey_scale_flattened(const torch::Tensor image) {
   return out;
 }
 
+torch::Tensor grey_scale_2d(const torch::Tensor image) {
+  CHECK_INPUT(image);
+  int height = image.size(1);
+  int width = image.size(2);
+  
+  torch::Tensor out = torch::empty({height, width}, image.options());
+
+  dim3 blocks_in_grid(ceil(height / 32.0), ceil(width / 32.0), 1);
+  dim3 threads_in_block(32, 32, 1);
+
+  rgb_to_grayscale_2d_kernel<<<blocks_in_grid, threads_in_block>>>(
+    image.data_ptr<unsigned char>(),
+    out.data_ptr<unsigned char>(),
+    height,
+    width
+  );
+  C10_CUDA_KERNEL_LAUNCH_CHECK();
+  return out;
+}
+
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def(
-    "grey_scale_flattened",
-    &grey_scale_flattened,
-    "Flattens the image and converts it to grayscale (CUDA)"
+
+  pybind11::module ops = m.def_submodule("ops", "Grey scale operations using CUDA");
+
+  ops.def(
+    "grey_scale_1d",
+    &grey_scale_1d,
+    "Flattens the image and uses 1d kernel to convert it to grayscale (CUDA)"
+  );
+  ops.def(
+    "grey_scale_2d",
+    &grey_scale_2d,
+    "Flattens the image and uses 2d kernel to convert it to grayscale (CUDA)"
   );
 }
