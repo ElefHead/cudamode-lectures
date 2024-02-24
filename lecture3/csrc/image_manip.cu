@@ -7,20 +7,39 @@
 #define CHECK_INPUT(x) CHECK_CUDA(x); CHECK_CONTIGUOUS(x)
 
 
-__global__ void rgb_to_grayscale_kernel(const float* img, float* out, int width, int height) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < n) {
-        out[i] = 0.299f * img[i] + 0.587f * img[i + n] + 0.114f * img[i + 2 * n];
-    }
+__global__ void rgb_to_grayscale_flattened_kernel(const unsigned char* img, unsigned char* out, const int pixels_per_channel) {
+  /* 
+  Ok, so the image has 3 channels
+  when we flatten it, we need to think about 
+  the offset of rows as well as channels
+
+  The formula for converting to grayscale is (from pmpp)
+  “L=0.21*r+0.72*g+0.07*b”
+
+  */  
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (i < pixels_per_channel) {
+    out[i] = 0.21f * img[i] + 0.72f * img[i + pixels_per_channel] + 0.07f * img[i + 2 * pixels_per_channel];
+  }
 
 }
 
 
-torch::Tensor grey_scale_flattened(torch::Tensor image) {
+torch::Tensor grey_scale_flattened(const torch::Tensor image) {
   CHECK_INPUT(image);
-  int n = a.numel();
-  torch::Tensor out = torch::empty_like(a);
-  rgb_to_grayscale_kernel<<<ceil(n / 1024.0), 1024>>>(a.data_ptr<float>(), b.data_ptr<float>(), out.data_ptr<float>(), n);
+  int height = image.size(1);
+  int width = image.size(2);
+  
+  int pixels_per_channel = width * height;
+  
+  torch::Tensor out = torch::empty({height, width}, image.options());
+
+  rgb_to_grayscale_flattened_kernel<<<ceil(pixels_per_channel / 1024.0), 1024>>>(
+    image.data_ptr<unsigned char>(),
+    out.data_ptr<unsigned char>(),
+    pixels_per_channel
+  );
   C10_CUDA_KERNEL_LAUNCH_CHECK();
   return out;
 }
@@ -30,7 +49,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
     "grey_scale_flattened",
     &grey_scale_flattened,
-    "Flattens the image and converts it to grayscale (CUDA)", 
-    py::arg("image")
+    "Flattens the image and converts it to grayscale (CUDA)"
   );
 }
