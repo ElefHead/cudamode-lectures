@@ -39,10 +39,10 @@ __global__ void rgb_to_grayscale_2d_kernel(const unsigned char* img, unsigned ch
 
 torch::Tensor grey_scale_1d(const torch::Tensor image) {
   CHECK_INPUT(image);
-  int height = image.size(1);
-  int width = image.size(2);
+  const int height = image.size(1);
+  const int width = image.size(2);
   
-  int pixels_per_channel = width * height;
+  const int pixels_per_channel = width * height;
   
   torch::Tensor out = torch::empty({height, width}, image.options());
 
@@ -57,13 +57,13 @@ torch::Tensor grey_scale_1d(const torch::Tensor image) {
 
 torch::Tensor grey_scale_2d(const torch::Tensor image) {
   CHECK_INPUT(image);
-  int height = image.size(1);
-  int width = image.size(2);
+  const int height = image.size(1);
+  const int width = image.size(2);
   
   torch::Tensor out = torch::empty({height, width}, image.options());
 
-  dim3 blocks_in_grid(ceil(height / 32.0), ceil(width / 32.0), 1);
-  dim3 threads_in_block(32, 32, 1);
+  const dim3 blocks_in_grid(ceil(height / 32.0), ceil(width / 32.0), 1);
+  const dim3 threads_in_block(32, 32, 1);
 
   rgb_to_grayscale_2d_kernel<<<blocks_in_grid, threads_in_block>>>(
     image.data_ptr<unsigned char>(),
