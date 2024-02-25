@@ -31,12 +31,12 @@ void matrix_multiply_1d_kernel(
 
 
 __global__
-void matrix_multiplication_2d_kernel(
+void matrix_multiply_2d_kernel(
     const float* M, const float* N, float* out,
     const int M_height, const int width, const int N_width
 ) {
-    const int col = blockIdx.x * blockDim.x + threadIdx.x;
     const int row = blockIdx.y * blockDim.y + threadIdx.y;
+    const int col = blockIdx.x * blockDim.x + threadIdx.x;
 
     if ((row < M_height) && (col < N_width)) {
         float total_value = 0.0;
@@ -45,7 +45,7 @@ void matrix_multiplication_2d_kernel(
             total_value += M[row * width + i] * N[i * N_width + col];
         }
 
-        out[row*width + col] = total_value;
+        out[row * N_width + col] = total_value;
     }
 
 }
@@ -59,10 +59,9 @@ torch::Tensor matrix_multiply_1d_op(
 
     const int M_height = M.size(0);
     const int M_width = M.size(1);
-    const int N_height = N.size(0);
     const int N_width = N.size(1);
 
-    AT_ASSERTM(M_width == N_height, "M width and N height should be the same");
+    AT_ASSERTM(M_width == N.size(0), "M width and N height should be the same");
 
     torch::Tensor out = torch::empty({M_height, N_width}, M.options());
 
@@ -86,17 +85,16 @@ torch::Tensor matrix_multiply_2d_op(
 
     const int M_height = M.size(0);
     const int M_width = M.size(1);
-    const int N_height = N.size(0);
     const int N_width = N.size(1);
 
-    AT_ASSERTM(M_width == N_height, "M width and N height should be the same");
+    AT_ASSERTM(M_width == N.size(0), "M width and N height should be the same");
 
     torch::Tensor out = torch::empty({M_height, N_width}, M.options());
 
-    dim3 blocks_in_grid(ceil(M_height / 32.0), ceil(N_width / 32.0), 1);
+    dim3 blocks_in_grid(ceil(N_width / 32.0), ceil(M_height / 32.0), 1);
     dim3 threads_in_block(32, 32, 1);
 
-    matrix_multiply_1d_kernel<<<blocks_in_grid, threads_in_block>>>(
+    matrix_multiply_2d_kernel<<<blocks_in_grid, threads_in_block>>>(
         M.data_ptr<float>(), 
         N.data_ptr<float>(),
         out.data_ptr<float>(),
