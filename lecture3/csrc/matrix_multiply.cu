@@ -91,6 +91,12 @@ torch::Tensor matrix_multiply_2d_op(
 
     torch::Tensor out = torch::empty({M_height, N_width}, M.options());
 
+    /* 
+    for some reason, switching the ordering in 
+    blocks_in_grid makes it much slower (when you switch it here
+    you also have to switch the row and col in the kernel)
+    which is very interesting.
+    */
     dim3 blocks_in_grid(ceil(N_width / 32.0), ceil(M_height / 32.0), 1);
     dim3 threads_in_block(32, 32, 1);
 
