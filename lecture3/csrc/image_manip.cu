@@ -28,8 +28,8 @@ void rgb_to_grayscale_1d_kernel(const unsigned char* img, unsigned char* out, co
 
 __global__ 
 void rgb_to_grayscale_2d_kernel(const unsigned char* img, unsigned char* out, const int height, const int width) {
-  const int i = blockIdx.x * blockDim.x + threadIdx.x; // rows
-  const int j = blockIdx.y * blockDim.y + threadIdx.y; // columns
+  const int j = blockIdx.x * blockDim.x + threadIdx.x; // rows
+  const int i = blockIdx.y * blockDim.y + threadIdx.y; // columns
 
   if (i < height && j < width) {
     const int pixels_per_channel = height * width;
@@ -40,8 +40,8 @@ void rgb_to_grayscale_2d_kernel(const unsigned char* img, unsigned char* out, co
 
 __global__
 void blur_kernel(const unsigned char* img, unsigned char* out, const int height, const int width, const int blur_radius) {
-  const int row = blockIdx.x * blockDim.x + threadIdx.x;
-  const int col = blockIdx.y * blockDim.y + threadIdx.y;
+  const int col = blockIdx.x * blockDim.x + threadIdx.x;
+  const int row = blockIdx.y * blockDim.y + threadIdx.y;
   
   const int pixels_per_channel = width * height;
 
@@ -97,7 +97,7 @@ torch::Tensor grey_scale_2d(const torch::Tensor image) {
   
   torch::Tensor out = torch::empty({height, width}, image.options());
 
-  const dim3 blocks_in_grid(ceil(height / 32.0), ceil(width / 32.0), 1);
+  const dim3 blocks_in_grid(ceil(width / 32.0), ceil(height / 32.0), 1);
   const dim3 threads_in_block(32, 32, 1);
 
   rgb_to_grayscale_2d_kernel<<<blocks_in_grid, threads_in_block>>>(
@@ -117,7 +117,7 @@ torch::Tensor blur(const torch::Tensor image, int radius = 1) {
 
   torch::Tensor out = torch::empty_like(image);
 
-  const dim3 blocks_in_grid(ceil(height / 32.0), ceil(width / 32.0), 1);
+  const dim3 blocks_in_grid(ceil(width / 32.0), ceil(height / 32.0), 1);
   const dim3 threads_in_block(32, 32, 1);
 
   blur_kernel<<<blocks_in_grid, threads_in_block>>>(
