@@ -12,8 +12,8 @@
 
 __global__
 void matrix_multiply_tiled_kernel(
-    const float* M, const float* N, float* out, 
-    const int M_height, const int width, const int N_width
+    float* M, float* N, float* out, 
+    int M_height, int width, int N_width
 ) {
     __shared__ float M_shared[TILE_WIDTH][TILE_WIDTH];
     __shared__ float N_shared[TILE_WIDTH][TILE_WIDTH];
@@ -52,7 +52,7 @@ void matrix_multiply_tiled_kernel(
 
 
 
-torch::Tensor matrix_multiply_tiled(const torch::Tensor M, const torch::Tensor N) {
+torch::Tensor matrix_multiply_tiled(const torch::Tensor& M, const torch::Tensor& N) {
     CHECK_INPUT(M);
     CHECK_INPUT(N);
 
