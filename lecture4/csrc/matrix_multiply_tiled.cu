@@ -6,17 +6,16 @@
 #define CHECK_CONTIGUOUS(x) AT_ASSERTM(x.is_contiguous(), #x " must be contiguous")
 #define CHECK_INPUT(x) CHECK_CUDA(x); CHECK_CONTIGUOUS(x)
 
-#define TILE_WIDTH 32
-#define BLOCK_SIZE_FLOAT 32.0
+#define TILE_SIZE 32
 
 
 __global__
 void matrix_multiply_tiled_kernel(
-    float* M, float* N, float* out, 
-    int M_height, int width, int N_width
+    const float* M, const float* N, float* out, 
+    const int M_height, const int width, const int N_width
 ) {
-    __shared__ float M_shared[TILE_WIDTH][TILE_WIDTH];
-    __shared__ float N_shared[TILE_WIDTH][TILE_WIDTH];
+    __shared__ float M_shared[TILE_SIZE][TILE_SIZE];
+    __shared__ float N_shared[TILE_SIZE][TILE_SIZE];
 
     const int row = blockIdx.y * blockDim.y + threadIdx.y;
     const int col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -24,19 +23,19 @@ void matrix_multiply_tiled_kernel(
     const int idr = threadIdx.y;
     const int idc = threadIdx.x;
 
-    float value = 0.0f;
+    float value = 0.f;
 
-    for(int phase = 0; phase < (width + TILE_WIDTH - 1) / TILE_WIDTH; ++phase) {
+    for(int phase = 0; phase < (width / (float)TILE_SIZE); ++phase) {
         
-        const int M_col = phase * TILE_WIDTH + idc;
-        const int N_row = phase * TILE_WIDTH + idr;
+        const int M_col = phase * TILE_SIZE + idc;
+        const int N_row = phase * TILE_SIZE + idr;
 
-        M_shared[idr][idc] = (((row < M_height) && (M_col < width)) ? M[row * width + M_col] : 0.0);
-        N_shared[idr][idc] = ((( N_row < width) && (col < N_width)) ? N[N_row * N_width + col] : 0.0);
+        M_shared[idr][idc] = (((row < M_height) && (M_col < width)) ? M[row * width + M_col] : 0.f);
+        N_shared[idr][idc] = ((( N_row < width) && (col < N_width)) ? N[N_row * N_width + col] : 0.f);
 
         __syncthreads();
 
-        for (int i = 0; i < TILE_WIDTH; ++i) {
+        for (int i = 0; i < TILE_SIZE; ++i) {
             value += M_shared[idr][i] * N_shared[i][idc];
         }
 
@@ -64,8 +63,11 @@ torch::Tensor matrix_multiply_tiled(const torch::Tensor& M, const torch::Tensor&
 
     torch::Tensor out = torch::empty({M_height, N_width}, M.options());
 
-    dim3 blocks_in_grid(ceil(N_width / BLOCK_SIZE_FLOAT), ceil(M_height / BLOCK_SIZE_FLOAT), 1);
-    dim3 threads_in_block(TILE_WIDTH, TILE_WIDTH, 1);
+    dim3 threads_in_block(TILE_SIZE, TILE_SIZE);
+    dim3 blocks_in_grid(
+        ceil(N_width / (float)threads_in_block.x),
+        ceil(M_height / (float)threads_in_block.y)
+    );
 
     matrix_multiply_tiled_kernel<<<blocks_in_grid, threads_in_block>>>(
         M.data_ptr<float>(), 
