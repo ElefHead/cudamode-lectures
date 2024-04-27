@@ -1,0 +1,20 @@
+{
+    "build": { 
+        "dockerfile": "/home/paperspace/cudamode-lectures/Dockerfile" 
+    },
+    "runArgs": ["--gpus", "all"],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "BoundaryStudio.cpp-extentions-pack",
+                "ms-python.vscode-pylance",
+                "GitHub.copilot",
+                "charliermarsh.ruff",
+                "ms-dotnettools.dotnet-interactive-vscode",
+                "ms-toolsai.jupyter-keymap"
+            ]
+        }
+    },
+    "onCreateCommand": ["pip", "install", "-r", "requirements.txt"]
+}
