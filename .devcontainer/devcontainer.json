@@ -7,14 +7,18 @@
         "vscode": {
             "extensions": [
                 "ms-python.python",
-                "BoundaryStudio.cpp-extentions-pack",
                 "ms-python.vscode-pylance",
                 "GitHub.copilot",
                 "charliermarsh.ruff",
                 "ms-dotnettools.dotnet-interactive-vscode",
-                "ms-toolsai.jupyter-keymap"
+                "ms-toolsai.jupyter-keymap",
+                "ms-vscode.cpptools",
+                "NVIDIA.nsight-vscode-edition"
             ]
         }
     },
-    "onCreateCommand": ["pip", "install", "-r", "requirements.txt"]
+    "onCreateCommand": ["pip", "install", "-r", "requirements.txt"],
+    "mounts": [
+        "source=${localEnv:HOME}/.config,target=/root/.config,type=bind,consistency=cached"
+    ]
 }
