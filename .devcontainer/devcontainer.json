@@ -1,6 +1,6 @@
 {
     "build": { 
-        "dockerfile": "/home/paperspace/cudamode-lectures/Dockerfile" 
+        "dockerfile": "../Dockerfile" 
     },
     "runArgs": ["--gpus", "all"],
     "customizations": {
